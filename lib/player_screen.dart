@@ -745,8 +745,55 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final wasBackground = _lifecycleState != AppLifecycleState.resumed;
+    if (state != AppLifecycleState.resumed && !wasBackground) {
+      // 刚进入后台：记住用户是否正在播放，回前台后用于决定是否自动续播。
+      _shouldResumeOnForeground = _playIntent || _player.state.playing;
+    }
     _lifecycleState = state;
     _applyLifecycleVisibility();
+    if (state == AppLifecycleState.resumed &&
+        wasBackground &&
+        !_closed &&
+        _foreground) {
+      // iOS 挂起期间网络 socket 会被系统断开，本地代理到源站的连接失效。
+      // 回到前台后旧流大概率已死，主动检查并重连，而不是等 health 检测。
+      _scheduleForegroundRecovery();
+    }
+  }
+
+  bool _shouldResumeOnForeground = false;
+  Timer? _foregroundRecoveryTimer;
+
+  void _scheduleForegroundRecovery() {
+    final plan = _plan;
+    if (_closed ||
+        _loading ||
+        plan == null ||
+        plan.local ||
+        _localFailure) {
+      return;
+    }
+    _foregroundRecoveryTimer?.cancel();
+    _foregroundRecoveryTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (_closed || !_foreground || _loading || _localFailure) return;
+      // 错误面板状态：之前因后台断网导致恢复失败，回前台自动再试一次。
+      if (_error != null) {
+        DiaryService.add('[Play] 回前台，自动重试上次失败的播放');
+        unawaited(_retry());
+        return;
+      }
+      final state = _player.state;
+      if (state.playing && !state.buffering) return; // 播放正常，无需干预
+      DiaryService.add('[Play] 回前台检测到播放停滞，主动重连当前集');
+      unawaited(
+        _play(
+          _index,
+          position: _currentPosition,
+          playWhenReady: _shouldResumeOnForeground,
+        ),
+      );
+    });
   }
 
   void _queueRecovery() {
@@ -1460,6 +1507,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     WidgetsBinding.instance.removeObserver(this);
     _saveTimer?.cancel();
     _healthTimer?.cancel();
+    _foregroundRecoveryTimer?.cancel();
     _errorTimer?.cancel();
     _pictureInPictureExitTimer?.cancel();
     if (_pictureInPictureHandlerInstalled) {

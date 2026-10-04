@@ -198,19 +198,45 @@ class _PlayerControlsState extends State<PlayerControls> {
       _tap();
       return;
     }
-    final third = width / 3;
-    if (dx < third) {
-      // 屏幕左侧 1/3：后退 15 秒
-      widget.interactions.seek(-15);
+    final leftBound = width * 0.30;
+    final rightBound = width * 0.70;
+    if (dx < leftBound) {
+      // 左侧 30%：后退 5 秒
+      widget.interactions.seek(-5);
       _show();
-    } else if (dx > third * 2) {
-      // 屏幕右侧 1/3：快进 15 秒
-      widget.interactions.seek(15);
+    } else if (dx > rightBound) {
+      // 右侧 30%：快进 5 秒
+      widget.interactions.seek(5);
       _show();
     } else {
-      // 屏幕中间 1/3：切换控制栏显隐
+      // 中间 40%：切换控制栏显隐
       _tap();
     }
+  }
+
+  Offset? _doubleTapPosition;
+
+  void _handleDoubleTap(double dx, double width) {
+    if (!widget.enabled || widget.interactions.suppressTap) return;
+    if (width > 0) {
+      final leftBound = width * 0.30;
+      final rightBound = width * 0.70;
+      if (dx < leftBound) {
+        // 双击左侧：后退 15 秒
+        widget.interactions.seek(-15);
+        _show();
+        return;
+      }
+      if (dx > rightBound) {
+        // 双击右侧：快进 15 秒
+        widget.interactions.seek(15);
+        _show();
+        return;
+      }
+    }
+    // 双击中间：暂停 / 播放
+    widget.onTogglePlayback();
+    _show();
   }
 
   Future<void> _panel(Future<void> Function() open) async {
@@ -266,13 +292,12 @@ class _PlayerControlsState extends State<PlayerControls> {
                   details.localPosition.dx,
                   constraints.maxWidth,
                 ),
-                onDoubleTap: () {
-                  if (!widget.enabled || widget.interactions.suppressTap) {
-                    return;
-                  }
-                  widget.onTogglePlayback();
-                  _show();
-                },
+                onDoubleTapDown: (details) =>
+                    _doubleTapPosition = details.localPosition.dx,
+                onDoubleTap: () => _handleDoubleTap(
+                  _doubleTapPosition ?? 0,
+                  constraints.maxWidth,
+                ),
               ),
             ),
             if (state.buffering && widget.enabled)
