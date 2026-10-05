@@ -262,13 +262,15 @@ class PlayerInteractions extends ChangeNotifier {
     });
   }
 
-  void seek(int seconds) {
+  void seek(int seconds, {bool silent = false}) {
     if (!available() || player.state.duration <= Duration.zero) return;
     _endHold();
     final target = (player.state.position.inMilliseconds + seconds * 1000)
         .clamp(0, player.state.duration.inMilliseconds);
     unawaited((onSeek ?? player.seek)(Duration(milliseconds: target)));
-    hint('${seconds > 0 ? '快进至' : '后退至'} ${formatPosition(target / 1000)}');
+    if (!silent) {
+      hint('${seconds > 0 ? '快进至' : '后退至'} ${formatPosition(target / 1000)}');
+    }
   }
 
   void changeVolume(double delta) {

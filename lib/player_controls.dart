@@ -202,10 +202,10 @@ class _PlayerControlsState extends State<PlayerControls> {
     final rightBound = width * 0.70;
     if (dx < leftBound) {
       // 左侧 30%：后退 5 秒（不显示 UI）
-      widget.interactions.seek(-5);
+      widget.interactions.seek(-5, silent: true);
     } else if (dx > rightBound) {
       // 右侧 30%：快进 5 秒（不显示 UI）
-      widget.interactions.seek(5);
+      widget.interactions.seek(5, silent: true);
     } else {
       // 中间 40%：切换控制栏显隐
       _tap();
@@ -221,12 +221,12 @@ class _PlayerControlsState extends State<PlayerControls> {
       final rightBound = width * 0.70;
       if (dx < leftBound) {
         // 双击左侧：后退 15 秒（不显示 UI）
-        widget.interactions.seek(-15);
+        widget.interactions.seek(-15, silent: true);
         return;
       }
       if (dx > rightBound) {
         // 双击右侧：快进 15 秒（不显示 UI）
-        widget.interactions.seek(15);
+        widget.interactions.seek(15, silent: true);
         return;
       }
     }
