@@ -212,7 +212,7 @@ class _PlayerControlsState extends State<PlayerControls> {
     }
   }
 
-  Offset? _doubleTapPosition;
+  double? _doubleTapPosition;
 
   void _handleDoubleTap(double dx, double width) {
     if (!widget.enabled || widget.interactions.suppressTap) return;
