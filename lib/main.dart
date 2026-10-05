@@ -95,6 +95,12 @@ class _AppBootstrapState extends State<AppBootstrap>
       );
     } else if (state == AppLifecycleState.resumed) {
       if (library != null) library.suspended = false;
+      // 切后台时 pauseAll 暂停了所有下载，回前台需要恢复，否则任务永远停在暂停态。
+      unawaited(
+        NativeRepository(
+          background: false,
+        ).controlDownloads('resumeAll').catchError((Object _) {}),
+      );
     }
   }
 

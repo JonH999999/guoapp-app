@@ -30,7 +30,7 @@ class PlaybackRecovery {
 }
 
 class PlaybackHealth {
-  static const stallTimeout = Duration(seconds: 8);
+  static const stallTimeout = Duration(seconds: 5);
   Duration? _position;
   DateTime? _lastProgress;
 
