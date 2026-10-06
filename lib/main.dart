@@ -21,6 +21,7 @@ import 'lan_controller.dart';
 import 'player_screen.dart';
 import 'video_enhancement_assets.dart';
 import 'diary_service.dart';
+import 'download_watchdog.dart';
 
 Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -59,6 +60,7 @@ class _AppBootstrapState extends State<AppBootstrap>
 
   @override
   void dispose() {
+    DownloadWatchdog.instance.stop();
     WidgetsBinding.instance.removeObserver(this);
     LanController.current?.dispose();
     LanController.current = null;
@@ -96,11 +98,21 @@ class _AppBootstrapState extends State<AppBootstrap>
     } else if (state == AppLifecycleState.resumed) {
       if (library != null) library.suspended = false;
       // 切后台时 pauseAll 暂停了所有下载，回前台需要恢复，否则任务永远停在暂停态。
-      unawaited(
-        NativeRepository(
-          background: false,
-        ).controlDownloads('resumeAll').catchError((Object _) {}),
-      );
+      // 延迟到 native 就绪后再恢复，失败自动重试一次；同时踢一下下载看门狗。
+      unawaited(_resumeDownloadsAfterForeground());
+    }
+  }
+
+  Future<void> _resumeDownloadsAfterForeground() async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        await Future<void>.delayed(const Duration(milliseconds: 1200));
+        await repository.controlDownloads('resumeAll');
+        DownloadWatchdog.instance.kick();
+        return;
+      } catch (_) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
     }
   }
 
@@ -122,6 +134,7 @@ class _AppBootstrapState extends State<AppBootstrap>
       final preferences = await SharedPreferences.getInstance();
       await _refreshDevice();
       await repository.initialize();
+      DownloadWatchdog.instance.start(repository);
       if (mounted) {
         setState(() {
           store = LocalStore(preferences);
